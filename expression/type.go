@@ -3,7 +3,6 @@ package expression
 import (
 	"fmt"
 	"reflect"
-	"strings"
 )
 
 // 整数类型
@@ -21,6 +20,8 @@ import (
 // │ uint32     │ 32位无符号整数        	│ 32位     │ var i uint32 = 42 │
 // │ uint64     │ 64位无符号整数        	│ 64位     │ var i uint64 = 42 │
 // └────────────┴──────────────────────┴──────────┴───────────────────┘
+// byte == uint8
+// rune == int32
 
 // 浮点类
 // ┌─────────┬─────────────────┬──────┬──────────────────────┐
@@ -47,10 +48,16 @@ import (
 // └────────┴────────────────┴─────────────┴────────────────────────┘
 
 func StrExp() {
-	res := strings.Map(func(r rune) rune {
-		return r + 32
-	}, "HELLE")
-	fmt.Println(res)
+	// strings 包
+	// res := strings.Map(func(r rune) rune {
+	// 	return r + 32
+	// }, "HELLE")
+	// fmt.Println(res)
+	x := 65
+	var y = rune(65)
+	fmt.Println(x, y)
+
+	// unicode/utf8 包
 }
 
 // 复合数据类
@@ -80,11 +87,28 @@ func ArrayAndSliceExp() {
 	arr := [10]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 	nums := arr[3:7:9]
 
+	// 比较
+	// 1.  ==、!= 仅仅 nil 其余不可以比较
+	// 2. slices.Equal
+
 	// append
-	nums = append(nums, 1, 2)
+	// nums = append(nums, 1, 2)
+	a := []int{1, 2, 3}
+	nums = append(nums, a...)
+
+	// 派生切片
+	// nums2 := nums[:5]
+	// nums3 := nums[2:]
+
+	// cap
+	// clear
 
 	// copy 深拷贝
 
+	// 数组 <=> 切片
+	// a := [3]int{1, 2, 3}
+	// nums = a[:]
+	// b := [3]int(nums)
 }
 
 func MapExp() {
@@ -93,13 +117,19 @@ func MapExp() {
 	// m1 := make(map[int]string)    // 未指定初始容量
 	// m2 := make(map[int]string, 8) // 指定初始容量为8
 
+	// 读、写
 	m := map[int]string{}
-
 	if _, ok := m[1]; ok {
 	}
-	// 删除 delete
 
+	// 清空
+	// clear
+
+	// 删除 delete
 	delete(m, 1)
+
+	// 比较
+	// maps.Equal和maps.EqualFunc
 }
 
 // 引用类型
@@ -174,12 +204,6 @@ func PointExp() {
 	// fmt.Println(*g)
 
 	//
-
-}
-
-// 接口
-//   - 接口 fake nil
-func InterfaceExp() {
 
 }
 

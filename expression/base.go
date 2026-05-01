@@ -11,7 +11,9 @@ import (
 
 // 版本更新
 // go install golang.org/dl/go1.21.5@latest
-// go1.21.5 download
+// go1.26.2 download
+// 		eg: mv /Users/hj/sdk/go1.26.2 /Users/hj/develop/golang
+// 			mv go1.26.2 go
 // mv $GOROOT-NEW $GOROOT
 //
 //

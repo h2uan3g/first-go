@@ -40,6 +40,12 @@ func StructExp() {
 
 }
 
+// 接口
+//   - 接口 fake nil
+func InterfaceExp() {
+
+}
+
 // 接受者
 // 调用方法没区别
 // 实现接口时有区别
