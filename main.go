@@ -1,110 +1,101 @@
 package main
 
 import (
-	"errors"
-	"fmt"
-	"net/http"
+	"log"
+	"time"
+
+	jwtware "github.com/gofiber/contrib/v3/jwt"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/logger"
+	"github.com/golang-jwt/jwt/v5"
 )
 
-func LogOutput(message string) {
-	fmt.Println(message)
-}
-
-type SimpleDataStore struct {
-	userData map[string]string
-}
-
-func (sds SimpleDataStore) UserNameForID(userID string) (string, bool) {
-	name, ok := sds.userData[userID]
-	return name, ok
-}
-
-func NewSimpleDataStore() SimpleDataStore {
-	return SimpleDataStore{
-		userData: map[string]string{
-			"1": "Fred",
-			"2": "Mary",
-			"3": "Pat",
-		},
-	}
-}
-
-type DataStore interface {
-	UserNameForID(userID string) (string, bool)
-}
-
-type Logger interface {
-	Log(message string)
-}
-
-type LoggerAdapter func(message string)
-
-func (lg LoggerAdapter) Log(message string) {
-	lg(message)
-}
-
-type SimpleLogic struct {
-	l  Logger
-	ds DataStore
-}
-
-func (sl SimpleLogic) SayHello(userID string) (string, error) {
-	sl.l.Log("in SayHello for " + userID)
-	name, ok := sl.ds.UserNameForID(userID)
-	if !ok {
-		return "", errors.New("unknown user")
-	}
-	return "Hello, " + name, nil
-}
-
-func (sl SimpleLogic) SayGoodbye(userID string) (string, error) {
-	sl.l.Log("in SayGoodbye for " + userID)
-	name, ok := sl.ds.UserNameForID(userID)
-	if !ok {
-		return "", errors.New("unknown user")
-	}
-	return "Goodbye, " + name, nil
-}
-
-func NewSimpleLogic(l Logger, ds DataStore) SimpleLogic {
-	return SimpleLogic{
-		l:  l,
-		ds: ds,
-	}
-}
-
-type Logic interface {
-	SayHello(userID string) (string, error)
-}
-
-type Controller struct {
-	l     Logger
-	logic Logic
-}
-
-func (c Controller) SayHello(w http.ResponseWriter, r *http.Request) {
-	c.l.Log("In SayHello")
-	userID := r.URL.Query().Get("user_id")
-	message, err := c.logic.SayHello(userID)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
-		return
-	}
-	w.Write([]byte(message))
-}
-func NewController(l Logger, logic Logic) Controller {
-	return Controller{
-		l:     l,
-		logic: logic,
-	}
-}
-
 func main() {
-	l := LoggerAdapter(LogOutput)
-	ds := NewSimpleDataStore()
-	logic := NewSimpleLogic(l, ds)
-	c := NewController(l, logic)
-	http.HandleFunc("/hello", c.SayHello)
-	http.ListenAndServe(":8080", nil)
+	// Initialize a new Fiber app
+	app := fiber.New()
+
+	api := app.Group("/api", logger.New())
+
+	// Define a route for the GET method on the root path '/'
+	api.Get("/", func(c fiber.Ctx) error {
+		// Send a string response to the client
+		return c.SendString("Hello, World 👋!")
+	})
+
+	// Login route
+	api.Post("/login", login)
+
+	// JWT Middleware
+	// app.Use(jwtware.New(jwtware.Config{
+	// 	SigningKey: jwtware.SigningKey{Key: []byte("secret")},
+	// }))
+
+	// Restricted Routes
+	api.Get("/restricted", Protected(), restricted)
+
+	// Start the server on port 3000
+	log.Fatal(app.Listen(":3001"))
+}
+
+func Protected() func(fiber.Ctx) error {
+	return jwtware.New(jwtware.Config{
+		SigningKey: jwtware.SigningKey{Key: []byte("secret")},
+		ErrorHandler: func(c fiber.Ctx, err error) error {
+			if err.Error() == "Missing or malformed JWT" {
+				c.Status(fiber.StatusBadRequest)
+				return c.JSON(fiber.Map{"status": "error", "message": "Missing or malformed JWT", "data": nil})
+
+			} else {
+				c.Status(fiber.StatusUnauthorized)
+				return c.JSON(fiber.Map{"status": "error", "message": "Invalid or expired JWT", "data": nil})
+			}
+		},
+	})
+}
+
+type User struct {
+	User     string `json:"user"`
+	Password string `json:"pass"`
+}
+
+func login(c fiber.Ctx) error {
+	var user User
+	if err := c.Bind().Body(&user); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	// Throws Unauthorized error
+	if user.User != "john" || user.Password != "doe" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials"})
+	}
+
+	// Create the Claims
+	claims := jwt.MapClaims{
+		"name":  "John Doe",
+		"admin": true,
+		"exp":   time.Now().Add(time.Hour * 72).Unix(),
+	}
+
+	// Create token
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	// Generate encoded token and send it as response.
+	t, err := token.SignedString([]byte("secret"))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"token": t})
+}
+
+func restricted(c fiber.Ctx) error {
+	// user := c.Locals("USER").(*jwt.Token)
+	// claims := user.Claims.(jwt.MapClaims)
+	// name := claims["name"].(string)
+	//
+	user := jwtware.FromContext(c)
+	claims := user.Claims.(jwt.MapClaims)
+	name := claims["name"].(string)
+
+	return c.JSON(fiber.Map{"msg": "Welcome " + name})
 }
